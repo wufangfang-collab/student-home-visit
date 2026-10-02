@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกและรายงานข้อมูลการเยี่ยมบ้านนักเรียน</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; color: black; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-indigo-700 text-white shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid font-bold text-2xl text-yellow-300 fa-house-chimney-user"></i>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">ระบบบันทึกและรายงานข้อมูลการเยี่ยมบ้านนักเรียน</h1>
+                    <p class="text-xs text-indigo-200">Student Home Visit Data Management & Reporting System</p>
+                </div>
+            </div>
+            <!-- Navigation Tabs -->
+            <nav class="flex flex-wrap gap-2 text-sm font-medium">
+                <button onclick="switchTab('list-tab')" id="tab-list-btn" class="px-3 py-2 rounded-lg bg-indigo-800 text-white hover:bg-indigo-600 transition flex items-center gap-1.5 active-tab">
+                    <i class="fa-solid fa-list-check"></i> รายชื่อนักเรียน/บันทึก
+                </button>
+                <button onclick="switchTab('report-class-tab')" id="tab-report-class-btn" class="px-3 py-2 rounded-lg bg-indigo-900/50 hover:bg-indigo-600 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-pie"></i> สรุปรายงานประจำห้อง
+                </button>
+                <button onclick="switchTab('report-school-tab')" id="tab-report-school-btn" class="px-3 py-2 rounded-lg bg-indigo-900/50 hover:bg-indigo-600 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-school"></i> รายงานภาพรวมโรงเรียน
+                </button>
+                <button onclick="openStudentModal()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-plus"></i> จัดการนักเรียน
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+
+        <!-- Sync Indicator -->
+        <div id="sync-status" class="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex justify-between items-center no-print">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin text-amber-600"></i> กำลังโหลดข้อมูลจาก Google Sheets...</span>
+            <button onclick="fetchDataFromGoogleSheets()" class="px-2 py-1 bg-amber-200 hover:bg-amber-300 rounded text-amber-900 font-semibold transition">รีเฟรชข้อมูล</button>
+        </div>
+
+        <!-- 3.1 & 3.2 Section: Header Config & Student List -->
+        <section id="list-tab" class="tab-content space-y-6">
+            <!-- Filter Bar / Class Info -->
+            <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200 no-print">
+                <h2 class="text-lg font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-600"></i> ข้อมูลชั้นเรียนและครูที่ปรึกษา
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อครูที่ปรึกษา</label>
+                        <input type="text" id="teacher-name" value="ครูสมชาย ใจดี" onchange="saveConfig()" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ปีการศึกษา</label>
+                        <select id="academic-year" onchange="saveConfig()" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="2569">2569</option>
+                            <option value="2568">2568</option>
+                            <option value="2567">2567</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ภาคเรียน</label>
+                        <select id="semester" onchange="saveConfig()" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกชั้นเรียน</label>
+                        <select id="grade-level" onchange="filterStudents()" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="ม.1">มัธยมศึกษาปีที่ 1</option>
+                            <option value="ม.2">มัธยมศึกษาปีที่ 2</option>
+                            <option value="ม.3" selected>มัธยมศึกษาปีที่ 3</option>
+                            <option value="ม.4">มัธยมศึกษาปีที่ 4</option>
+                            <option value="ม.5">มัธยมศึกษาปีที่ 5</option>
+                            <option value="ม.6">มัธยมศึกษาปีที่ 6</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกห้องเรียน</label>
+                        <select id="room-number" onchange="filterStudents()" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="1">ห้อง 1</option>
+                            <option value="2">ห้อง 2</option>
+                            <option value="3">ห้อง 3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student List Table -->
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b flex justify-between items-center flex-wrap gap-2">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fa-solid fa-users text-indigo-600"></i> รายชื่อนักเรียน
+                        <span id="current-class-display" class="text-sm bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-normal">ม.3/1</span>
+                    </h3>
+                    <div class="text-xs text-slate-500 flex items-center gap-4">
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i> บันทึกแล้ว</span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-circle-xmark text-rose-500 text-sm"></i> ยังไม่บันทึก</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs font-semibold uppercase border-b">
+                                <th class="p-3">เลขที่</th>
+                                <th class="p-3">เลขประจำตัว</th>
+                                <th class="p-3">ชื่อ-นามสกุล</th>
+                                <th class="p-3">ชั้น / ห้อง</th>
+                                <th class="p-3 text-center">สถานะการบันทึก</th>
+                                <th class="p-3 text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-table-body" class="divide-y text-sm text-slate-700">
+                            <!-- Dynamic Content Inserted via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3.4 สรุปการเยี่ยมบ้านนักเรียน ทั้งห้องเรียน -->
+        <section id="report-class-tab" class="tab-content space-y-6 hidden">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                <div class="flex justify-between items-center border-b pb-4 mb-6 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">รายงานสรุปการเยี่ยมบ้านนักเรียนประจำห้องเรียน</h2>
+                        <p class="text-xs text-slate-500" id="report-class-subtitle">ชั้นมัธยมศึกษาปีที่ 3/1 | ครูที่ปรึกษา: ครูสมชาย ใจดี</p>
+                    </div>
+                    <button onclick="window.print()" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs rounded-lg flex items-center gap-2 no-print">
+                        <i class="fa-solid fa-print"></i> พิมพ์รายงาน PDF
+                    </button>
+                </div>
+
+                <!-- Stats Overview Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center">
+                        <div class="text-xs text-indigo-600 font-semibold mb-1">นักเรียนทั้งหมด</div>
+                        <div id="stat-total" class="text-3xl font-bold text-indigo-800">0</div>
+                    </div>
+                    <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
+                        <div class="text-xs text-emerald-600 font-semibold mb-1">เยี่ยมบ้านแล้ว</div>
+                        <div id="stat-visited" class="text-3xl font-bold text-emerald-700">0</div>
+                    </div>
+                    <div class="p-4 bg-rose-50 border border-rose-100 rounded-xl text-center">
+                        <div class="text-xs text-rose-600 font-semibold mb-1">ยังไม่ได้รับการเยี่ยม</div>
+                        <div id="stat-unvisited" class="text-3xl font-bold text-rose-700">0</div>
+                    </div>
+                    <div class="p-4 bg-amber-50 border border-amber-100 rounded-xl text-center">
+                        <div class="text-xs text-amber-600 font-semibold mb-1">ร้อยละความสำเร็จ</div>
+                        <div id="stat-percent" class="text-3xl font-bold text-amber-700">0%</div>
+                    </div>
+                </div>
+
+                <!-- Chart Visualizations -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="p-4 border rounded-xl bg-slate-50">
+                        <h4 class="text-sm font-bold text-slate-700 mb-3 text-center">สัดส่วนสถานภาพบิดามารดา</h4>
+                        <div class="h-64 flex justify-center"><canvas id="parentsChart"></canvas></div>
+                    </div>
+                    <div class="p-4 border rounded-xl bg-slate-50">
+                        <h4 class="text-sm font-bold text-slate-700 mb-3 text-center">ภาระงานความรับผิดชอบของนักเรียน</h4>
+                        <div class="h-64 flex justify-center"><canvas id="dutiesChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Summary List Table -->
+                <div class="border rounded-xl overflow-hidden">
+                    <div class="bg-slate-100 p-3 font-bold text-sm text-slate-700 border-b">สรุปการเยี่ยมบ้านรายห้อง</div>
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b text-slate-600">
+                            <tr>
+                                <th class="p-2">เลขที่</th>
+                                <th class="p-2">ชื่อ-นามสกุล</th>
+                                <th class="p-2">ผู้ปกครองที่พบ</th>
+                                <th class="p-2">เบอร์โทรศัพท์</th>
+                                <th class="p-2">สถานะเยี่ยมบ้าน</th>
+                                <th class="p-2 text-center no-print">รายงานรายบุคคล</th>
+                            </tr>
+                        </thead>
+                        <tbody id="class-report-tbody" class="divide-y">
+                            <!-- JS Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. รายงานการเยี่ยมบ้านทั้งโรงเรียน -->
+        <section id="report-school-tab" class="tab-content space-y-6 hidden">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                <div class="border-b pb-4 mb-6">
+                    <h2 class="text-xl font-bold text-slate-800">รายงานการเยี่ยมบ้านภาพรวมทั้งโรงเรียน</h2>
+                    <p class="text-xs text-slate-500">สรุปความคืบหน้าการดำเนินงานเยี่ยมบ้านนักเรียนแยกตามระดับชั้นเรียน</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="p-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-xl shadow-md">
+                        <div class="text-xs font-medium opacity-80">ยอดนักเรียนรวมทั้งโรงเรียน</div>
+                        <div id="school-total-students" class="text-3xl font-bold mt-1">0 คน</div>
+                    </div>
+                    <div class="p-4 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-xl shadow-md">
+                        <div class="text-xs font-medium opacity-80">ดำเนินการเยี่ยมบ้านแล้ว</div>
+                        <div id="school-total-visited" class="text-3xl font-bold mt-1">0 คน</div>
+                    </div>
+                    <div class="p-4 bg-gradient-to-br from-amber-500 to-amber-700 text-white rounded-xl shadow-md">
+                        <div class="text-xs font-medium opacity-80">ความคืบหน้ารวม</div>
+                        <div id="school-progress-percent" class="text-3xl font-bold mt-1">0%</div>
+                    </div>
+                </div>
+
+                <div class="border rounded-xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-indigo-50 text-indigo-900 border-b font-bold">
+                            <tr>
+                                <th class="p-3">ระดับชั้น</th>
+                                <th class="p-3 text-center">นักเรียนทั้งหมด</th>
+                                <th class="p-3 text-center">เยี่ยมแล้ว</th>
+                                <th class="p-3 text-center">ยังไม่ได้เยี่ยม</th>
+                                <th class="p-3">ความคืบหน้า</th>
+                            </tr>
+                        </thead>
+                        <tbody id="school-report-tbody" class="divide-y">
+                            <!-- JS Generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 3.3 Modal แบบฟอร์มบันทึกการเยี่ยมบ้าน (Visit Form Modal) -->
+    <div id="visit-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex justify-center items-center p-4 overflow-y-auto hidden">
+        <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border flex flex-col">
+            <!-- Modal Header -->
+            <div class="p-4 bg-indigo-700 text-white rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-user"></i> แบบฟอร์มบันทึกการเยี่ยมบ้านนักเรียน
+                </h3>
+                <button onclick="closeVisitModal()" class="text-indigo-200 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+
+            <!-- Form Content -->
+            <form id="visit-form" onsubmit="saveVisitData(event)" class="p-6 space-y-6 text-sm text-slate-700">
+                <input type="hidden" id="form-student-id">
+
+                <!-- 1. เลือกชื่อนักเรียน -->
+                <div class="bg-slate-50 p-4 rounded-xl border">
+                    <label class="block font-bold text-slate-800 mb-1">เลือกนักเรียนเพื่อบันทึก <span class="text-rose-500">*</span></label>
+                    <select id="form-student-select" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <!-- Student options -->
+                    </select>
+                </div>
+
+                <!-- 2. ข้อมูลสถานที่ & ผู้ปกครอง -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-semibold mb-1">สถานที่เยี่ยม</label>
+                        <input type="text" id="v-location" placeholder="เช่น บ้านเลขที่ 123 ม.1 ต.ในเมือง" class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">ผู้ปกครองที่พบ / ชื่อ-นามสกุล / อายุ</label>
+                        <input type="text" id="v-guardian-info" placeholder="เช่น นายสมศักดิ์ ใจดี อายุ 45 ปี" class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">ความสัมพันธ์ผู้ปกครองกับนักเรียน</label>
+                        <input type="text" id="v-relation" placeholder="เช่น บิดา / มารดา / ยาย" class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">เบอร์โทรติดต่อผู้ปกครอง</label>
+                        <input type="text" id="v-phone" placeholder="เช่น 081-234-5678" class="w-full p-2 border rounded-lg">
+                    </div>
+                </div>
+
+                <!-- 3. อาชีพผู้ปกครอง -->
+                <div>
+                    <label class="block font-semibold mb-2">อาชีพผู้ปกครอง</label>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="ค้าขาย"> ค้าขาย</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="รับจ้าง"> รับจ้าง</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="ช่างไม้"> ช่างไม้</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="เกษตรกร"> เกษตรกร</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="รับราชการ"> รับราชการ</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="พนักงานบริษัท"> พนักงานบริษัท</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" name="v-job" value="ยังไม่ได้ประกอบอาชีพ"> ยังไม่ได้ประกอบอาชีพ</label>
+                    </div>
+                    <div class="mt-2">
+                        <input type="text" id="v-job-other" placeholder="อื่นๆ (ระบุ)" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <!-- 4. รายได้ / เดือน -->
+                <div>
+                    <label class="block font-semibold mb-2">รายได้ / เดือน</label>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                        <label class="flex items-center gap-1.5"><input type="radio" name="v-income" value="น้อยกว่า 5,000 บาท"> น้อยกว่า 5,000 บาท</label>
+                        <label class="flex items-center gap-1.5"><input type="radio" name="v-income" value="5,001 – 10,000 บาท"> 5,001 – 10,000 บาท</label>
+                        <label class="flex items-center gap-1.5"><input type="radio" name="v-income" value="10,001 – 15,000 บาท"> 10,001 – 15,000 บาท</label>
+                        <label class="flex items-center gap-1.5"><input type="radio" name="v-income" value="15,001 – 25,000 บาท"> 15,001 – 25,000 บาท</label>
+                        <label class="flex items-center gap-1.5"><input type="radio" name="v-income" value="มากกว่า 25,000 บาท"> มากกว่า 25,000 บาท</label>
+                    </div>
+                </div>
+
+                <!-- 5. สถานภาพบิดา-มารดา & รายได้รวมครอบครัว -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-semibold mb-2">สถานภาพบิดา-มารดา</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-parents" value="อยู่ร่วมกัน"> อยู่ร่วมกัน</label>
+                            <label class="block"><input type="radio" name="v-parents" value="แยกกันอยู่"> แยกกันอยู่</label>
+                            <label class="block"><input type="radio" name="v-parents" value="หย่าร้าง"> หย่าร้าง</label>
+                            <label class="block"><input type="radio" name="v-parents" value="บิดาเสียชีวิต"> บิดาเสียชีวิต</label>
+                            <label class="block"><input type="radio" name="v-parents" value="มารดาเสียชีวิต"> มารดาเสียชีวิต</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2">รายได้รวมของครอบครัว</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-family-income" value="ไม่เพียงพอ"> ไม่เพียงพอ</label>
+                            <label class="block"><input type="radio" name="v-family-income" value="พอใช้"> พอใช้</label>
+                            <label class="block"><input type="radio" name="v-family-income" value="เพียงพอและมีเงินออม"> เพียงพอและมีเงินออม</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. ลักษณะที่พัก & สภาพตัวบ้าน & ความสะอาด -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block font-semibold mb-2">ลักษณะที่พักอาศัย</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-house-type" value="บ้านส่วนตัว"> บ้านส่วนตัว</label>
+                            <label class="block"><input type="radio" name="v-house-type" value="บ้านเช่า/ห้องพัก"> บ้านเช่า/ห้องพัก</label>
+                            <label class="block"><input type="radio" name="v-house-type" value="อาศัยบ้านญาติ"> อาศัยบ้านญาติ</label>
+                            <label class="block"><input type="radio" name="v-house-type" value="มูลนิธิ/วัด"> มูลนิธิ/วัด</label>
+                            <input type="text" id="v-house-type-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2">สภาพตัวบ้าน</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-house-condition" value="ดี"> ดี</label>
+                            <label class="block"><input type="radio" name="v-house-condition" value="พอใช้"> พอใช้</label>
+                            <label class="block"><input type="radio" name="v-house-condition" value="เก่าทรุดโทรม"> เก่าทรุดโทรม</label>
+                            <label class="block"><input type="radio" name="v-house-condition" value="พื้นที่คับแคบ"> พื้นที่คับแคบ</label>
+                            <label class="block"><input type="radio" name="v-house-condition" value="ไม่มีความเป็นสัดส่วน"> ไม่มีความเป็นสัดส่วน</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2">ความสะอาดมีระเบียบ</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-cleanliness" value="เรียบร้อยดี"> เรียบร้อยดี</label>
+                            <label class="block"><input type="radio" name="v-cleanliness" value="ไม่ค่อยสะอาด"> ไม่ค่อยสะอาด</label>
+                            <label class="block"><input type="radio" name="v-cleanliness" value="สกปรกไม่มีระเบียบ"> สกปรกไม่มีระเบียบ</label>
+                            <input type="text" id="v-cleanliness-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. ความสัมพันธ์ & การเดินทาง -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block font-semibold mb-2">ความสัมพันธ์ของสมาชิกในครอบครัว</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-family-rel" value="รักใคร่กันดี"> รักใคร่กันดี</label>
+                            <label class="block"><input type="radio" name="v-family-rel" value="ขัดแย้งทะเลาะกันบางครั้ง"> ขัดแย้งทะเลาะกันบางครั้ง</label>
+                            <label class="block"><input type="radio" name="v-family-rel" value="ขัดแย้งทะเลาะกันบ่อยครั้ง"> ขัดแย้งทะเลาะกันบ่อยครั้ง</label>
+                            <label class="block"><input type="radio" name="v-family-rel" value="ห่างเหิน"> ห่างเหิน</label>
+                            <label class="block"><input type="radio" name="v-family-rel" value="ขัดแย้งและทำร้ายร่างกายบางครั้ง"> ขัดแย้งและทำร้ายร่างกายบางครั้ง</label>
+                            <input type="text" id="v-family-rel-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2">การเดินทางมาโรงเรียน</label>
+                        <div class="space-y-1 text-xs">
+                            <label class="block"><input type="radio" name="v-travel" value="รถรับส่ง"> รถรับส่ง</label>
+                            <label class="block"><input type="radio" name="v-travel" value="ผู้ปกครองมาส่ง"> ผู้ปกครองมาส่ง</label>
+                            <label class="block"><input type="radio" name="v-travel" value="เดินเท้า"> เดินเท้า</label>
+                            <label class="block"><input type="radio" name="v-travel" value="ขับรถจักรยานยนต์มาเอง"> ขับรถจักรยานยนต์มาเอง</label>
+                            <input type="text" id="v-travel-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. พฤติกรรมที่บ้าน & ภาระงาน & งานอดิเรก -->
+                <div class="space-y-4 border-t pt-4">
+                    <div>
+                        <label class="block font-semibold mb-1">พฤติกรรมที่บ้าน</label>
+                        <textarea id="v-behavior" rows="2" placeholder="อธิบายพฤติกรรมของนักเรียนเมื่ออยู่บ้าน..." class="w-full p-2 border rounded-lg text-xs"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold mb-1">ภาระงานความรับผิดชอบของนักเรียนที่มีต่อครอบครัว (เลือกได้มากกว่า 1 ข้อ)</label>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            <label><input type="checkbox" name="v-duties" value="ช่วยงานบ้าน"> ช่วยงานบ้าน</label>
+                            <label><input type="checkbox" name="v-duties" value="ช่วยดูแลคนเจ็บป่วย/พิการ"> ช่วยดูแลคนเจ็บป่วย/พิการ</label>
+                            <label><input type="checkbox" name="v-duties" value="ช่วยงานในนาไร่"> ช่วยงานในนาไร่</label>
+                            <label><input type="checkbox" name="v-duties" value="ช่วยค้าขายเล็กๆน้อยๆ"> ช่วยค้าขายเล็กๆน้อยๆ</label>
+                            <label><input type="checkbox" name="v-duties" value="ทำงานพิเศษแถวบ้าน"> ทำงานพิเศษแถวบ้าน</label>
+                        </div>
+                        <input type="text" id="v-duties-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold mb-1">กิจกรรมยามว่างหรืองานอดิเรก (เลือกได้มากกว่า 1 ข้อ)</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <label><input type="checkbox" name="v-hobbies" value="ดูทีวี/ฟังเพลง"> ดูทีวี/ฟังเพลง</label>
+                            <label><input type="checkbox" name="v-hobbies" value="ไปเที่ยว"> ไปเที่ยว</label>
+                            <label><input type="checkbox" name="v-hobbies" value="อ่านหนังสือ"> อ่านหนังสือ</label>
+                            <label><input type="checkbox" name="v-hobbies" value="ไปหาเพื่อน"> ไปหาเพื่อน</label>
+                            <label><input type="checkbox" name="v-hobbies" value="อินฟลูเอนเซอร์"> อินฟลูเอนเซอร์</label>
+                            <label><input type="checkbox" name="v-hobbies" value="เล่นเกม"> เล่นเกม</label>
+                            <label><input type="checkbox" name="v-hobbies" value="คอนเทนต์ครีเอเตอร์"> คอนเทนต์ครีเอเตอร์</label>
+                            <label><input type="checkbox" name="v-hobbies" value="เล่นดนตรี"> เล่นดนตรี</label>
+                        </div>
+                        <input type="text" id="v-hobbies-other" placeholder="อื่นๆ (ระบุ)" class="w-full mt-1 p-1.5 border rounded text-xs">
+                    </div>
+                </div>
+
+                <!-- 9. เทคโนโลยี & สุขภาพ -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 text-xs">
+                    <div>
+                        <label class="block font-semibold mb-2 text-sm">การเข้าถึงสื่อคอมพิวเตอร์และอินเทอร์เน็ต</label>
+                        <label class="block mb-1"><input type="radio" name="v-internet" value="สามารถเข้าถึงอินเตอร์เน็ตได้จากที่อยู่อาศัย"> สามารถเข้าถึงอินเตอร์เน็ตได้จากที่อยู่อาศัย</label>
+                        <label class="block"><input type="radio" name="v-internet" value="ไม่สามารถเข้าถึงอินเตอร์เน็ตได้จากที่อยู่อาศัย"> ไม่สามารถเข้าถึงอินเตอร์เน็ตได้จากที่อยู่อาศัย</label>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-sm">การใช้เครื่องมือสื่อสารอิเล็กทรอนิกส์</label>
+                        <label class="block mb-1"><input type="radio" name="v-screen-time" value="ใช้โซเชียลมีเดีย/เกม (ไม่เกินวันละ 3 ชั่วโมง)"> ใช้โซเชียลมีเดีย/เกม (ไม่เกินวันละ 3 ชั่วโมง)</label>
+                        <label class="block"><input type="radio" name="v-screen-time" value="ใช้โซเชียลมีเดีย/เกม (วันละ 3 ชั่วโมงขึ้นไป)"> ใช้โซเชียลมีเดีย/เกม (วันละ 3 ชั่วโมงขึ้นไป)</label>
+                    </div>
+                </div>
+
+                <div class="border-t pt-4">
+                    <label class="block font-semibold mb-1">ปัญหาสุขภาพ / โรคประจำตัว</label>
+                    <div class="flex items-center gap-4 text-xs mb-2">
+                        <label><input type="radio" name="v-health-option" value="ไม่มี" checked onclick="toggleHealthInput(false)"> ไม่มี</label>
+                        <label><input type="radio" name="v-health-option" value="มี" onclick="toggleHealthInput(true)"> มี</label>
+                    </div>
+                    <input type="text" id="v-health-detail" placeholder="ระบุรายละเอียดปัญหาสุขภาพ..." class="w-full p-2 border rounded-lg text-xs hidden">
+                </div>
+
+                <!-- 10. การช่วยเหลือ -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block font-semibold mb-1">สิ่งที่ต้องการให้โรงเรียนช่วยเหลือ</label>
+                        <textarea id="v-help-needed" rows="2" class="w-full p-2 border rounded-lg text-xs" placeholder="เช่น ขอทุนการศึกษา, สนับสนุนอุปกรณ์การเรียน"></textarea>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">สิ่งที่ครูแนะนำ / ให้ความช่วยเหลือเบื้องต้น</label>
+                        <textarea id="v-help-given" rows="2" class="w-full p-2 border rounded-lg text-xs" placeholder="คำแนะนำแก่ผู้ปกครองและนักเรียน..."></textarea>
+                    </div>
+                </div>
+
+                <!-- 11. แนบไฟล์รูปภาพ Google Drive URL -->
+                <div class="border-t pt-4 space-y-3 bg-indigo-50/50 p-4 rounded-xl">
+                    <h4 class="font-bold text-indigo-900 flex items-center gap-2">
+                        <i class="fa-brands fa-google-drive text-emerald-600"></i> ลิงก์รูปภาพใน Google Drive
+                    </h4>
+                    <p class="text-xs text-slate-500">ใส่ URL รูปภาพที่เก็บใน Google Drive (วางลิงก์ไฟล์หรือ URL รูปภาพ)</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">URL รูปบ้าน 1</label>
+                            <input type="url" id="v-img-house1" placeholder="https://drive.google.com/..." class="w-full p-2 border rounded text-xs bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">URL รูปบ้าน 2</label>
+                            <input type="url" id="v-img-house2" placeholder="https://drive.google.com/..." class="w-full p-2 border rounded text-xs bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">URL รูปลายเซ็นครู</label>
+                            <input type="url" id="v-img-signature" placeholder="https://drive.google.com/..." class="w-full p-2 border rounded text-xs bg-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white p-2">
+                    <button type="button" onclick="closeVisitModal()" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-sm font-semibold transition">ยกเลิก</button>
+                    <button type="submit" id="save-btn" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลเยี่ยมบ้าน
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal เพิ่ม/แก้ไขข้อมูลนักเรียน (ข้อ 3.5) -->
+    <div id="student-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex justify-center items-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6">
+            <h3 class="font-bold text-lg text-slate-800 border-b pb-3 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-indigo-600"></i> จัดการข้อมูลนักเรียน
+            </h3>
+            <form id="student-form" onsubmit="saveStudentData(event)" class="space-y-4 text-sm">
+                <input type="hidden" id="edit-student-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">เลขประจำตัวนักเรียน</label>
+                    <input type="text" id="std-code" required class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">ชื่อ-นามสกุล</label>
+                    <input type="text" id="std-fullname" required class="w-full p-2 border rounded-lg">
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">เลขที่</label>
+                        <input type="number" id="std-number" required class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">ชั้น</label>
+                        <select id="std-grade" class="w-full p-2 border rounded-lg">
+                            <option value="ม.1">ม.1</option>
+                            <option value="ม.2">ม.2</option>
+                            <option value="ม.3">ม.3</option>
+                            <option value="ม.4">ม.4</option>
+                            <option value="ม.5">ม.5</option>
+                            <option value="ม.6">ม.6</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">ห้อง</label>
+                        <input type="number" id="std-room" value="1" required class="w-full p-2 border rounded-lg">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-4">
+                    <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-slate-200 rounded-lg">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal รายงานเยี่ยมบ้านรายบุคคล (Individual Report Modal) -->
+    <div id="individual-report-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex justify-center items-center p-4 overflow-y-auto hidden">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative">
+            <button onclick="closeIndividualReportModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold no-print">&times;</button>
+            <div id="individual-report-content" class="space-y-4">
+                <!-- JS Inserted Content -->
+            </div>
+            <div class="mt-6 flex justify-end gap-3 no-print border-t pt-4">
+                <button onclick="closeIndividualReportModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm">ปิด</button>
+                <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm flex items-center gap-1">
+                    <i class="fa-solid fa-print"></i> พิมพ์ใบบันทึกเยี่ยมบ้าน
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic & Google Apps Script Connection -->
+    <script>
+        // Google Apps Script API URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbwNUoxj-KMDdRMUD0uQ4WoUgGPZrKK8nKrcppeYCAA/dev";
+
+        let config = JSON.parse(localStorage.getItem('hv_config')) || {
+            teacher: 'นายสิทธิพงศ์ สะสาง',
+            year: '2569',
+            semester: '1',
+            grade: 'ม.2',
+            room: '1'
+        };
+
+        // Default local cache or mock
+        let students = JSON.parse(localStorage.getItem('hv_students')) || [
+            { id: 'S003', number: 1, code: '10003', name: 'เด็กชายกฤษณะ ร่มพนาธรรม', grade: 'ม.1', room: '1' },
+            { id: 'S004', number: 2, code: '10004', name: 'เด็กชายจิรกร ชมชื่น', grade: 'ม.1', room: '1' },
+            { id: 'S005', number: 3, code: '10005', name: 'เด็กชายชนะชัย แซ่ฟุ้ง', grade: 'ม.1', room: '1' },
+            { id: 'S006', number: 4, code: '10006', name: 'เด็กชายชัยชนะ เชมือ', grade: 'ม.1', room: '1' },
+            { id: 'S007', number: 5, code: '10007', name: 'เด็กชายชุติพนธ์ แซ่หยี่', grade: 'ม.1', room: '1' }
+        ];
+
+        let visitRecords = JSON.parse(localStorage.getItem('hv_visit_records')) || {};
+
+        let parentsChartInstance = null;
+        let dutiesChartInstance = null;
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            initConfigFields();
+            renderStudentList();
+            renderClassReport();
+            renderSchoolReport();
+            fetchDataFromGoogleSheets();
+        });
+
+        // Fetch Data from Google Sheets API
+        async function fetchDataFromGoogleSheets() {
+            const statusEl = document.getElementById('sync-status');
+            statusEl.innerHTML = `<span class="flex items-center gap-2 text-amber-800"><i class="fa-solid fa-spinner fa-spin text-amber-600"></i> กำลังโหลดข้อมูลจาก Google Sheets...</span>`;
+            
+            try {
+                // Fetch Students
+                const resStd = await fetch(`${API_URL}?action=getStudents`);
+                if (resStd.ok) {
+                    const stdData = await resStd.json();
+                    if (Array.isArray(stdData) && stdData.length > 0) {
+                        students = stdData;
+                        localStorage.setItem('hv_students', JSON.stringify(students));
+                    }
+                }
+
+                // Fetch Visits
+                const resVis = await fetch(`${API_URL}?action=getVisits`);
+                if (resVis.ok) {
+                    const visData = await resVis.json();
+                    if (visData && typeof visData === 'object') {
+                        visitRecords = visData;
+                        localStorage.setItem('hv_visit_records', JSON.stringify(visitRecords));
+                    }
+                }
+
+                statusEl.className = "mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex justify-between items-center no-print";
+                statusEl.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-600"></i> เชื่อมต่อฐานข้อมูล Google Sheets สำเร็จ</span>
+                <button onclick="fetchDataFromGoogleSheets()" class="px-2 py-1 bg-emerald-200 hover:bg-emerald-300 rounded text-emerald-900 font-semibold transition">รีเฟรชข้อมูล</button>`;
+
+                renderStudentList();
+                renderClassReport();
+                renderSchoolReport();
+
+            } catch(err) {
+                console.error("Cloud Sync Error:", err);
+                statusEl.className = "mb-4 p-3 bg-slate-100 border border-slate-200 text-slate-700 text-xs rounded-xl flex justify-between items-center no-print";
+                statusEl.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-hard-drive text-slate-500"></i> ใช้งานในโหมด Offline (บันทึกข้อมูลในเครื่องชั่วคราว)</span>
+                <button onclick="fetchDataFromGoogleSheets()" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-slate-800 font-semibold transition">ลองเชื่อมต่อใหม่</button>`;
+            }
+        }
+
+        function initConfigFields() {
+            document.getElementById('teacher-name').value = config.teacher;
+            document.getElementById('academic-year').value = config.year;
+            document.getElementById('semester').value = config.semester;
+            document.getElementById('grade-level').value = config.grade;
+            document.getElementById('room-number').value = config.room;
+        }
+
+        function saveConfig() {
+            config.teacher = document.getElementById('teacher-name').value;
+            config.year = document.getElementById('academic-year').value;
+            config.semester = document.getElementById('semester').value;
+            config.grade = document.getElementById('grade-level').value;
+            config.room = document.getElementById('room-number').value;
+            localStorage.setItem('hv_config', JSON.stringify(config));
+            renderStudentList();
+            renderClassReport();
+        }
+
+        function filterStudents() {
+            saveConfig();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            if (tabId === 'report-class-tab') renderClassReport();
+            if (tabId === 'report-school-tab') renderSchoolReport();
+        }
+
+        // Render Student Table
+        function renderStudentList() {
+            const grade = config.grade;
+            const room = config.room;
+            document.getElementById('current-class-display').innerText = `${grade}/${room}`;
+
+            const filtered = students.filter(s => String(s.grade) === String(grade) && String(s.room) === String(room));
+            const tbody = document.getElementById('student-table-body');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">ไม่พบข้อมูลนักเรียนในห้องนี้</td></tr>`;
+                return;
+            }
+
+            filtered.sort((a,b) => Number(a.number) - Number(b.number)).forEach(s => {
+                const isVisited = !!visitRecords[s.id];
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold">${s.number}</td>
+                    <td class="p-3 text-slate-500">${s.code}</td>
+                    <td class="p-3 font-medium text-slate-800">${s.name}</td>
+                    <td class="p-3 text-slate-500">${s.grade}/${s.room}</td>
+                    <td class="p-3 text-center">
+                        ${isVisited 
+                            ? '<span class="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs bg-emerald-50 px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check"></i> บันทึกแล้ว</span>'
+                            : '<span class="inline-flex items-center gap-1 text-rose-600 font-semibold text-xs bg-rose-50 px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-xmark"></i> ยังไม่บันทึก</span>'
+                        }
+                    </td>
+                    <td class="p-3 text-center space-x-1">
+                        <button onclick="openVisitModal('${s.id}')" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-lg transition shadow-sm">
+                            <i class="fa-solid fa-pen-to-square"></i> บันทึกเยี่ยมบ้าน
+                        </button>
+                        ${isVisited ? `<button onclick="viewIndividualReport('${s.id}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition"><i class="fa-solid fa-file-invoice"></i> ดูใบบันทึก</button>` : ''}
+                        <button onclick="openStudentModal('${s.id}')" class="px-2 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs rounded-lg transition" title="แก้ไขข้อมูลนักเรียน"><i class="fa-solid fa-user-gear"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Open & Close Visit Modal
+        function openVisitModal(studentId = '') {
+            const select = document.getElementById('form-student-select');
+            select.innerHTML = '';
+            
+            const currentFiltered = students.filter(s => String(s.grade) === String(config.grade) && String(s.room) === String(config.room));
+            currentFiltered.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `[เลขที่ ${s.number}] ${s.name} (${s.code})`;
+                select.appendChild(opt);
+            });
+
+            if (studentId) {
+                select.value = studentId;
+                loadVisitFormData(studentId);
+            }
+
+            document.getElementById('visit-modal').classList.remove('hidden');
+        }
+
+        function closeVisitModal() {
+            document.getElementById('visit-modal').classList.add('hidden');
+            document.getElementById('visit-form').reset();
+        }
+
+        function loadVisitFormData(studentId) {
+            const record = visitRecords[studentId];
+            if (!record) {
+                document.getElementById('visit-form').reset();
+                document.getElementById('form-student-select').value = studentId;
+                return;
+            }
+
+            document.getElementById('v-location').value = record.location || '';
+            document.getElementById('v-guardian-info').value = record.guardianInfo || '';
+            document.getElementById('v-relation').value = record.relation || '';
+            document.getElementById('v-phone').value = record.phone || '';
+
+            setCheckboxes('v-job', record.jobs || []);
+            document.getElementById('v-job-other').value = record.jobOther || '';
+
+            setRadio('v-income', record.income || '');
+            setRadio('v-parents', record.parentsStatus || '');
+            setRadio('v-family-income', record.familyIncome || '');
+
+            setRadio('v-house-type', record.houseType || '');
+            document.getElementById('v-house-type-other').value = record.houseTypeOther || '';
+
+            setRadio('v-house-condition', record.houseCondition || '');
+            setRadio('v-cleanliness', record.cleanliness || '');
+            document.getElementById('v-cleanliness-other').value = record.cleanlinessOther || '';
+
+            setRadio('v-family-rel', record.familyRel || '');
+            document.getElementById('v-family-rel-other').value = record.familyRelOther || '';
+
+            setRadio('v-travel', record.travel || '');
+            document.getElementById('v-travel-other').value = record.travelOther || '';
+
+            document.getElementById('v-behavior').value = record.behavior || '';
+            setCheckboxes('v-duties', record.duties || []);
+            document.getElementById('v-duties-other').value = record.dutiesOther || '';
+
+            setCheckboxes('v-hobbies', record.hobbies || []);
+            document.getElementById('v-hobbies-other').value = record.hobbiesOther || '';
+
+            setRadio('v-internet', record.internet || '');
+            setRadio('v-screen-time', record.screenTime || '');
+
+            setRadio('v-health-option', record.healthOption || 'ไม่มี');
+            toggleHealthInput(record.healthOption === 'มี');
+            document.getElementById('v-health-detail').value = record.healthDetail || '';
+
+            document.getElementById('v-help-needed').value = record.helpNeeded || '';
+            document.getElementById('v-help-given').value = record.helpGiven || '';
+
+            document.getElementById('v-img-house1').value = record.imgHouse1 || '';
+            document.getElementById('v-img-house2').value = record.imgHouse2 || '';
+            document.getElementById('v-img-signature').value = record.imgSignature || '';
+        }
+
+        function setCheckboxes(name, values) {
+            document.querySelectorAll(`input[name="${name}"]`).forEach(cb => {
+                cb.checked = values.includes(cb.value);
+            });
+        }
+
+        function setRadio(name, value) {
+            document.querySelectorAll(`input[name="${name}"]`).forEach(rb => {
+                rb.checked = rb.value === value;
+            });
+        }
+
+        function toggleHealthInput(show) {
+            const input = document.getElementById('v-health-detail');
+            if (show) input.classList.remove('hidden');
+            else input.classList.add('hidden');
+        }
+
+        // Save Visit Data to Cloud / Local
+        async function saveVisitData(e) {
+            e.preventDefault();
+            const studentId = document.getElementById('form-student-select').value;
+            if (!studentId) return;
+
+            const btn = document.getElementById('save-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...`;
+
+            const record = {
+                studentId: studentId,
+                updatedAt: new Date().toLocaleDateString('th-TH'),
+                location: document.getElementById('v-location').value,
+                guardianInfo: document.getElementById('v-guardian-info').value,
+                relation: document.getElementById('v-relation').value,
+                phone: document.getElementById('v-phone').value,
+                jobs: getCheckedValues('v-job'),
+                jobOther: document.getElementById('v-job-other').value,
+                income: getRadioValue('v-income'),
+                parentsStatus: getRadioValue('v-parents'),
+                familyIncome: getRadioValue('v-family-income'),
+                houseType: getRadioValue('v-house-type'),
+                houseTypeOther: document.getElementById('v-house-type-other').value,
+                houseCondition: getRadioValue('v-house-condition'),
+                cleanliness: getRadioValue('v-cleanliness'),
+                cleanlinessOther: document.getElementById('v-cleanliness-other').value,
+                familyRel: getRadioValue('v-family-rel'),
+                familyRelOther: document.getElementById('v-family-rel-other').value,
+                travel: getRadioValue('v-travel'),
+                travelOther: document.getElementById('v-travel-other').value,
+                behavior: document.getElementById('v-behavior').value,
+                duties: getCheckedValues('v-duties'),
+                dutiesOther: document.getElementById('v-duties-other').value,
+                hobbies: getCheckedValues('v-hobbies'),
+                hobbiesOther: document.getElementById('v-hobbies-other').value,
+                internet: getRadioValue('v-internet'),
+                screenTime: getRadioValue('v-screen-time'),
+                healthOption: getRadioValue('v-health-option'),
+                healthDetail: document.getElementById('v-health-detail').value,
+                helpNeeded: document.getElementById('v-help-needed').value,
+                helpGiven: document.getElementById('v-help-given').value,
+                imgHouse1: document.getElementById('v-img-house1').value,
+                imgHouse2: document.getElementById('v-img-house2').value,
+                imgSignature: document.getElementById('v-img-signature').value
+            };
+
+            // Save Local First
+            visitRecords[studentId] = record;
+            localStorage.setItem('hv_visit_records', JSON.stringify(visitRecords));
+
+            // Sync with Google Sheets API
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'saveVisit', data: record })
+                });
+            } catch(err) {
+                console.error("Cloud Save Exception:", err);
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลเยี่ยมบ้าน`;
+
+            alert('บันทึกข้อมูลการเยี่ยมบ้านเรียบร้อยแล้ว!');
+            closeVisitModal();
+            renderStudentList();
+            renderClassReport();
+        }
+
+        function getCheckedValues(name) {
+            return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(c => c.value);
+        }
+
+        function getRadioValue(name) {
+            const selected = document.querySelector(`input[name="${name}"]:checked`);
+            return selected ? selected.value : '';
+        }
+
+        // Student Management Modal (3.5)
+        function openStudentModal(id = '') {
+            if (id) {
+                const std = students.find(s => String(s.id) === String(id));
+                if (std) {
+                    document.getElementById('edit-student-id').value = std.id;
+                    document.getElementById('std-code').value = std.code;
+                    document.getElementById('std-fullname').value = std.name;
+                    document.getElementById('std-number').value = std.number;
+                    document.getElementById('std-grade').value = std.grade;
+                    document.getElementById('std-room').value = std.room;
+                }
+            } else {
+                document.getElementById('student-form').reset();
+                document.getElementById('edit-student-id').value = '';
+                document.getElementById('std-grade').value = config.grade;
+                document.getElementById('std-room').value = config.room;
+            }
+            document.getElementById('student-modal').classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('student-modal').classList.add('hidden');
+        }
+
+        function saveStudentData(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-student-id').value || 'S' + Date.now();
+            const code = document.getElementById('std-code').value;
+            const name = document.getElementById('std-fullname').value;
+            const number = parseInt(document.getElementById('std-number').value);
+            const grade = document.getElementById('std-grade').value;
+            const room = document.getElementById('std-room').value;
+
+            const existingIdx = students.findIndex(s => String(s.id) === String(id));
+            if (existingIdx >= 0) {
+                students[existingIdx] = { id, code, name, number, grade, room };
+            } else {
+                students.push({ id, code, name, number, grade, room });
+            }
+
+            localStorage.setItem('hv_students', JSON.stringify(students));
+            closeStudentModal();
+            renderStudentList();
+            renderClassReport();
+        }
+
+        // Individual Report View
+        function viewIndividualReport(studentId) {
+            const std = students.find(s => String(s.id) === String(studentId));
+            const rec = visitRecords[studentId];
+            if (!std || !rec) return;
+
+            const container = document.getElementById('individual-report-content');
+            container.innerHTML = `
+                <div class="text-center border-b pb-3 mb-4">
+                    <h2 class="text-xl font-bold text-slate-800">แบบบันทึกการเยี่ยมบ้านนักเรียนรายบุคคล</h2>
+                    <p class="text-xs text-slate-500">ปีการศึกษา ${config.year} ภาคเรียนที่ ${config.semester}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs bg-indigo-50 p-3 rounded-lg border">
+                    <div><strong>นักเรียน:</strong> ${std.name} (เลขประจำตัว: ${std.code})</div>
+                    <div><strong>ชั้น/ห้อง:</strong> ${std.grade}/${std.room} (เลขที่ ${std.number})</div>
+                    <div><strong>ครูที่ปรึกษา:</strong> ${config.teacher}</div>
+                    <div><strong>วันที่บันทึก:</strong> ${rec.updatedAt || '-'}</div>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div class="border p-2.5 rounded-lg">
+                        <div class="font-bold text-indigo-700 mb-1">1. ข้อมูลการเยี่ยม & ผู้ปกครอง</div>
+                        <p><strong>สถานที่เยี่ยม:</strong> ${rec.location || '-'}</p>
+                        <p><strong>ผู้ปกครองที่พบ:</strong> ${rec.guardianInfo || '-'} (ความสัมพันธ์: ${rec.relation || '-'})</p>
+                        <p><strong>เบอร์โทรศัพท์:</strong> ${rec.phone || '-'}</p>
+                        <p><strong>อาชีพผู้ปกครอง:</strong> ${rec.jobs ? rec.jobs.join(', ') : '-'} ${rec.jobOther ? '('+rec.jobOther+')' : ''}</p>
+                        <p><strong>รายได้/เดือน:</strong> ${rec.income || '-'}</p>
+                    </div>
+
+                    <div class="border p-2.5 rounded-lg">
+                        <div class="font-bold text-indigo-700 mb-1">2. สภาพแวดล้อมครอบครัว & บ้าน</div>
+                        <p><strong>สถานภาพบิดามารดา:</strong> ${rec.parentsStatus || '-'}</p>
+                        <p><strong>รายได้รวมครอบครัว:</strong> ${rec.familyIncome || '-'}</p>
+                        <p><strong>ลักษณะที่พัก:</strong> ${rec.houseType || '-'} | <strong>สภาพบ้าน:</strong> ${rec.houseCondition || '-'} | <strong>ความสะอาด:</strong> ${rec.cleanliness || '-'}</p>
+                        <p><strong>ความสัมพันธ์ในครอบครัว:</strong> ${rec.familyRel || '-'}</p>
+                        <p><strong>การเดินทางมาโรงเรียน:</strong> ${rec.travel || '-'}</p>
+                    </div>
+
+                    <div class="border p-2.5 rounded-lg">
+                        <div class="font-bold text-indigo-700 mb-1">3. พฤติกรรม & การเรียนรู้</div>
+                        <p><strong>พฤติกรรมที่บ้าน:</strong> ${rec.behavior || '-'}</p>
+                        <p><strong>ภาระงานรับผิดชอบ:</strong> ${rec.duties ? rec.duties.join(', ') : '-'}</p>
+                        <p><strong>งานอดิเรก:</strong> ${rec.hobbies ? rec.hobbies.join(', ') : '-'}</p>
+                        <p><strong>อินเทอร์เน็ต:</strong> ${rec.internet || '-'} | <strong>การใช้สื่อ:</strong> ${rec.screenTime || '-'}</p>
+                        <p><strong>ปัญหาสุขภาพ:</strong> ${rec.healthOption === 'มี' ? rec.healthDetail : 'ไม่มี'}</p>
+                    </div>
+
+                    <div class="border p-2.5 rounded-lg bg-amber-50/50">
+                        <div class="font-bold text-amber-800 mb-1">4. สรุปความช่วยเหลือ</div>
+                        <p><strong>สิ่งที่ต้องการให้โรงเรียนช่วย:</strong> ${rec.helpNeeded || '-'}</p>
+                        <p><strong>ข้อแนะนำจากครู:</strong> ${rec.helpGiven || '-'}</p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 pt-2 text-center">
+                        <div class="border p-2 rounded bg-slate-50">
+                            <span class="block font-semibold mb-1">รูปบ้าน 1</span>
+                            ${rec.imgHouse1 ? `<a href="${rec.imgHouse1}" target="_blank" class="text-indigo-600 underline">ดูรูปภาพ</a>` : '<span class="text-slate-400">ไม่มีรูป</span>'}
+                        </div>
+                        <div class="border p-2 rounded bg-slate-50">
+                            <span class="block font-semibold mb-1">รูปบ้าน 2</span>
+                            ${rec.imgHouse2 ? `<a href="${rec.imgHouse2}" target="_blank" class="text-indigo-600 underline">ดูรูปภาพ</a>` : '<span class="text-slate-400">ไม่มีรูป</span>'}
+                        </div>
+                        <div class="border p-2 rounded bg-slate-50">
+                            <span class="block font-semibold mb-1">ลายเซ็นครู</span>
+                            ${rec.imgSignature ? `<a href="${rec.imgSignature}" target="_blank" class="text-indigo-600 underline">ดูลายเซ็น</a>` : '<span class="text-slate-400">ไม่มีรูป</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('individual-report-modal').classList.remove('hidden');
+        }
+
+        function closeIndividualReportModal() {
+            document.getElementById('individual-report-modal').classList.add('hidden');
+        }
+
+        // Class Report Charts & Stats
+        function renderClassReport() {
+            const classStudents = students.filter(s => String(s.grade) === String(config.grade) && String(s.room) === String(config.room));
+            const total = classStudents.length;
+            const visitedList = classStudents.filter(s => !!visitRecords[s.id]);
+            const visited = visitedList.length;
+            const unvisited = total - visited;
+            const percent = total > 0 ? Math.round((visited / total) * 100) : 0;
+
+            document.getElementById('report-class-subtitle').innerText = `ชั้น${config.grade}/${config.room} | ครูที่ปรึกษา: ${config.teacher}`;
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-visited').innerText = visited;
+            document.getElementById('stat-unvisited').innerText = unvisited;
+            document.getElementById('stat-percent').innerText = `${percent}%`;
+
+            // Render Table
+            const tbody = document.getElementById('class-report-tbody');
+            tbody.innerHTML = '';
+            classStudents.sort((a,b)=>Number(a.number)-Number(b.number)).forEach(s => {
+                const rec = visitRecords[s.id];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2 font-medium">${s.number}</td>
+                    <td class="p-2">${s.name}</td>
+                    <td class="p-2 text-slate-500">${rec ? rec.guardianInfo || '-' : '-'}</td>
+                    <td class="p-2 text-slate-500">${rec ? rec.phone || '-' : '-'}</td>
+                    <td class="p-2">
+                        ${rec ? '<span class="text-emerald-600 font-semibold"><i class="fa-solid fa-check"></i> เรียบร้อย</span>' : '<span class="text-rose-500"><i class="fa-solid fa-xmark"></i> ยังไม่เยี่ยม</span>'}
+                    </td>
+                    <td class="p-2 text-center no-print">
+                        ${rec ? `<button onclick="viewIndividualReport('${s.id}')" class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded border hover:bg-indigo-100">ดูรายงาน</button>` : '-'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Update Charts
+            renderCharts(visitedList);
+        }
+
+        function renderCharts(visitedList) {
+            // Chart 1: Parents Status
+            const parentCounts = { 'อยู่ร่วมกัน': 0, 'แยกกันอยู่': 0, 'หย่าร้าง': 0, 'บิดา/มารดาเสียชีวิต': 0 };
+            visitedList.forEach(s => {
+                const rec = visitRecords[s.id];
+                if (rec && rec.parentsStatus) {
+                    if (rec.parentsStatus.includes('เสียชีวิต')) parentCounts['บิดา/มารดาเสียชีวิต']++;
+                    else if (parentCounts[rec.parentsStatus] !== undefined) parentCounts[rec.parentsStatus]++;
+                }
+            });
+
+            const parentsCtx = document.getElementById('parentsChart').getContext('2d');
+            if (parentsChartInstance) parentsChartInstance.destroy();
+            parentsChartInstance = new Chart(parentsCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(parentCounts),
+                    datasets: [{
+                        data: Object.values(parentCounts),
+                        backgroundColor: ['#6366f1', '#f59e0b', '#ef4444', '#64748b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Chart 2: Duties
+            const dutyCounts = {};
+            visitedList.forEach(s => {
+                const rec = visitRecords[s.id];
+                if (rec && rec.duties) {
+                    rec.duties.forEach(d => {
+                        dutyCounts[d] = (dutyCounts[d] || 0) + 1;
+                    });
+                }
+            });
+
+            const dutiesCtx = document.getElementById('dutiesChart').getContext('2d');
+            if (dutiesChartInstance) dutiesChartInstance.destroy();
+            dutiesChartInstance = new Chart(dutiesCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(dutyCounts).length ? Object.keys(dutyCounts) : ['ไม่มีข้อมูล'],
+                    datasets: [{
+                        label: 'จำนวนนักเรียน (คน)',
+                        data: Object.keys(dutyCounts).length ? Object.values(dutyCounts) : [0],
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        // School-wide Report
+        function renderSchoolReport() {
+            const grades = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'];
+            const tbody = document.getElementById('school-report-tbody');
+            tbody.innerHTML = '';
+
+            let grandTotal = 0;
+            let grandVisited = 0;
+
+            grades.forEach(g => {
+                const gradeStudents = students.filter(s => String(s.grade) === String(g));
+                const total = gradeStudents.length;
+                const visited = gradeStudents.filter(s => !!visitRecords[s.id]).length;
+                const unvisited = total - visited;
+                const percent = total > 0 ? Math.round((visited / total) * 100) : 0;
+
+                grandTotal += total;
+                grandVisited += visited;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-700">ชั้นมัธยมศึกษาปีที่ ${g.replace('ม.', '')}</td>
+                    <td class="p-3 text-center">${total}</td>
+                    <td class="p-3 text-center text-emerald-600 font-medium">${visited}</td>
+                    <td class="p-3 text-center text-rose-500">${unvisited}</td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                                <div class="bg-indigo-600 h-2.5 rounded-full" style="width: ${percent}%"></div>
+                            </div>
+                            <span class="text-xs font-semibold text-slate-600 w-10 text-right">${percent}%</span>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const overallPercent = grandTotal > 0 ? Math.round((grandVisited / grandTotal) * 100) : 0;
+            document.getElementById('school-total-students').innerText = `${grandTotal} คน`;
+            document.getElementById('school-total-visited').innerText = `${grandVisited} คน`;
+            document.getElementById('school-progress-percent').innerText = `${overallPercent}%`;
+        }
+    </script>
+</body>
+</html>
